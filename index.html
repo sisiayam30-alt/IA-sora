@@ -163,37 +163,20 @@
                     <option value="EUR/GBP (OTC)">EUR/GBP (OTC)</option>
                     <option value="EUR/JPY (OTC)">EUR/JPY (OTC)</option>
                     <option value="NZD/USD (OTC)">NZD/USD (OTC)</option>
-                    <option value="AUD/CAD (OTC)">AUD/CAD (OTC)</option>
-                    <option value="AUD/JPY (OTC)">AUD/JPY (OTC)</option>
-                    <option value="EUR/AUD (OTC)">EUR/AUD (OTC)</option>
-                    <option value="GBP/JPY (OTC)">GBP/JPY (OTC)</option>
                 </optgroup>
                 
                 <optgroup label="--- COMMODITIES OTC ---">
                     <option value="GOLD (OTC)">GOLD / Volamena (OTC)</option>
-                    <option value="SILVER (OTC)">SILVER / Volafotsy (OTC)</option>
-                    <option value="CRUDE OIL (OTC)">CRUDE OIL / Solika (OTC)</option>
-                    <option value="BRENT OIL (OTC)">BRENT OIL (OTC)</option>
+                    <option value="SILVER (OTC)">SILVER (OTC)</option>
+                    <option value="CRUDE OIL (OTC)">CRUDE OIL (OTC)</option>
                 </optgroup>
 
                 <optgroup label="--- STOCKS OTC ---">
                     <option value="APPLE (OTC)">APPLE INC (OTC)</option>
-                    <option value="GOOGLE (OTC)">ALPHABET GOOGLE (OTC)</option>
+                    <option value="GOOGLE (OTC)">GOOGLE (OTC)</option>
                     <option value="MICROSOFT (OTC)">MICROSOFT (OTC)</option>
                     <option value="AMAZON (OTC)">AMAZON (OTC)</option>
-                    <option value="FACEBOOK (OTC)">META FACEBOOK (OTC)</option>
                     <option value="TESLA (OTC)">TESLA INC (OTC)</option>
-                    <option value="NETFLIX (OTC)">NETFLIX (OTC)</option>
-                    <option value="ALIBABA (OTC)">ALIBABA (OTC)</option>
-                    <option value="INTEL (OTC)">INTEL (OTC)</option>
-                    <option value="VISA (OTC)">VISA (OTC)</option>
-                </optgroup>
-
-                <optgroup label="--- REAL MARKET ---">
-                    <option value="EUR/USD">EUR/USD (Real)</option>
-                    <option value="GBP/USD">GBP/USD (Real)</option>
-                    <option value="USD/JPY">USD/JPY (Real)</option>
-                    <option value="AUD/USD">AUD/USD (Real)</option>
                 </optgroup>
             </select>
         </div>
@@ -218,7 +201,7 @@
     </div>
 
     <script>
-        function runAnalysis() {
+        async function runAnalysis() {
             const market = document.getElementById("market").value;
             const timeframe = document.getElementById("timeframe").value;
             
@@ -226,37 +209,41 @@
             const signalDiv = document.getElementById("signal");
             const detailsDiv = document.getElementById("details");
 
-            statusDiv.innerHTML = `Mandinika an'i ${market}...`;
+            statusDiv.innerHTML = `Mampiasa AI mianatra an'i ${market}...`;
             statusDiv.style.color = "#ffcc00";
             signalDiv.innerHTML = "";
             detailsDiv.style.display = "none";
 
-            setTimeout(() => {
-                statusDiv.innerHTML = `✅ Analyse vita [${market}]`;
-                statusDiv.style.color = "#4ef2d2";
+            try {
+                // Miantso ny Python Backend (app.py) mivantana
+                const response = await fetch(`/api/analyze?market=${encodeURIComponent(market)}&timeframe=${encodeURIComponent(timeframe)}`);
+                const data = await response.json();
 
-                const ran = Math.floor(Math.random() * 3) + 1;
-                const now = new Date();
-                const timeStr = now.toTimeString().split(' ')[0];
+                if (data.status === "success") {
+                    statusDiv.innerHTML = `✅ Analyse matanjaka [${data.market}]`;
+                    statusDiv.style.color = "#4ef2d2";
 
-                detailsDiv.style.display = "block";
+                    const now = new Date();
+                    const timeStr = now.toTimeString().split(' ')[0];
 
-                if (ran === 1) {
-                    signalDiv.innerHTML = "🟢 HIGHER (CALL)";
-                    signalDiv.className = "signal buy-style";
-                    detailsDiv.innerHTML = `🕒 ORA: <b>${timeStr}</b><br>⏱ DURÉE: <b>${timeframe}</b><br>📈 ASAO: <b>TSINDRIO BOKOTRA MAITSO</b>`;
-                } else if (ran === 2) {
-                    signalDiv.innerHTML = "🔴 LOWER (PUT)";
-                    signalDiv.className = "signal sell-style";
-                    detailsDiv.innerHTML = `🕒 ORA: <b>${timeStr}</b><br>⏱ DURÉE: <b>${timeframe}</b><br>📉 ASAO: <b>TSINDRIO BOKOTRA MENA</b>`;
+                    signalDiv.innerHTML = data.signal;
+                    signalDiv.className = `signal ${data.style}`;
+                    
+                    detailsDiv.style.display = "block";
+                    detailsDiv.innerHTML = `
+                        🕒 ORA: <b>${timeStr}</b><br>
+                        ⏱ DURÉE: <b>${data.timeframes || timeframe}</b><br>
+                        📊 RSI INDICATOR: <b>${data.rsi}</b><br>
+                        📉 ASAO: <b>${data.action}</b>
+                    `;
                 } else {
-                    signalDiv.innerHTML = "🚫 NO SIGNAL";
-                    signalDiv.className = "signal nosignal-style";
-                    statusDiv.innerHTML = `⚠️ Tsena mivadika`;
-                    statusDiv.style.color = "#ffcc00";
-                    detailsDiv.innerHTML = "Milamina ny tsena. Miandrasa labozia vaovao vao manindry indray.";
+                    statusDiv.innerHTML = `❌ Fahadisoana: ${data.message}`;
+                    statusDiv.style.color = "#ff3333";
                 }
-            }, 1500);
+            } catch (error) {
+                statusDiv.innerHTML = "❌ Diso ny fifandraisana amin'ny server.";
+                statusDiv.style.color = "#ff3333";
+            }
         }
     </script>
 </body>
