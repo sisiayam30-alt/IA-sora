@@ -1,87 +1,110 @@
-import tkinter as tk
-from tkinter import ttk, messagebox
-import random
-import datetime
+from flask import Flask, render_request, jsonify, render_template
+import yfinance as yf
+import pandas as pd
 
-class ForexSignalBot:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Forex AI Signal Bot")
-        self.root.geometry("450x550")
-        self.root.configure(bg="#1e1e2e")
+app = Flask(__name__, template_folder=".")
 
-        style = ttk.Style()
-        style.theme_use("clam")
-        style.configure("TLabel", background="#1e1e2e", foreground="#ffffff", font=("Arial", 11))
-        style.configure("TCombobox", fieldbackground="#2d2d3f", background="#2d2d3f", foreground="#ffffff")
+def calculate_indicators(df):
+    # Mikajy Moving Average (SMA 14)
+    df['SMA'] = df['Close'].rolling(window=14).mean()
+    
+    # Mikajy RSI (14)
+    delta = df['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / loss
+    df['RSI'] = 100 - (100 / (1 + rs))
+    return df
 
-        title_label = tk.Label(root, text="📊 FOREX SIGNAL ANALYZER", bg="#1e1e2e", fg="#4ef2d2", font=("Arial", 16, "bold"))
-        title_label.pack(pady=20)
+@app.route('/')
+def home():
+    return render_template('index.html')
 
-        # --- SELECTION MARCHE (Misy OTC izao) ---
-        ttk.Label(root, text="Safidio ny Marche (Pair):").pack(pady=5)
-        self.pairs = ["EUR/USD (OTC)", "GBP/USD (OTC)", "USD/JPY (OTC)", "EUR/USD", "GBP/USD", "USD/JPY"]
-        self.pair_box = ttk.Combobox(root, values=self.pairs, state="readonly", width=25)
-        self.pair_box.set("EUR/USD (OTC)")
-        self.pair_box.pack(pady=5)
-
-        ttk.Label(root, text="Safidio ny Timeframe (Kandrina):").pack(pady=5)
-        self.timeframes = ["1 minitra", "2 minitra", "3 minitra", "5 minitra"]
-        self.tf_box = ttk.Combobox(root, values=self.timeframes, state="readonly", width=25)
-        self.tf_box.set("1 minitra")
-        self.tf_box.pack(pady=5)
-
-        self.analyze_btn = tk.Button(root, text="START ANALYSE 🔍", bg="#ff007f", fg="white", font=("Arial", 12, "bold"), 
-                                     command=self.start_analysis, width=20, height=2, bd=0, cursor="hand2")
-        self.analyze_btn.pack(pady=25)
-
-        self.result_frame = tk.Frame(root, bg="#2d2d3f", bd=2, relief="groove")
-        self.result_frame.pack(pady=10, fill="x", padx=30)
-
-        self.status_label = tk.Label(self.result_frame, text="Miandry analyse...", bg="#2d2d3f", fg="#a0a0a0", font=("Arial", 11, "italic"))
-        self.status_label.pack(pady=10)
-
-        self.signal_label = tk.Label(self.result_frame, text="", bg="#2d2d3f", fg="white", font=("Arial", 20, "bold"))
-        self.signal_label.pack(pady=10)
-
-        self.time_label = tk.Label(self.result_frame, text="", bg="#2d2d3f", fg="#4ef2d2", font=("Arial", 10))
-        self.time_label.pack(pady=5)
-
-    def start_analysis(self):
-        pair = self.pair_box.get()
-        tf = self.tf_box.get()
+@app.route('/api/analyze', methods=['GET'])
+def analyze():
+    # Maka ny pair avy amin'ny tranonkala
+    market = render_request.args.get('market', 'EUR/USD')
+    timeframe = render_request.args.get('timeframe', '1 MIN')
+    
+    # Diovina ny anaran'ny pair raha misy "OTC" na "Real"
+    clean_market = market.replace(" (OTC)", "").replace(" (Real)", "")
+    
+    # Avadika ho kaody mifanaraka amin'ny yfinance
+    ticker_map = {
+        "EUR/USD": "EURUSD=X",
+        "GBP/USD": "GBPUSD=X",
+        "USD/JPY": "JPY=X",
+        "AUD/USD": "AUDUSD=X",
+        "USD/CHF": "CHF=X",
+        "EUR/GBP": "EURGBP=X",
+        "EUR/JPY": "EURJPY=X",
+        "NZD/USD": "NZDUSD=X",
+        "AUD/CAD": "AUDCAD=X",
+        "AUD/JPY": "AUDJPY=X",
+        "EUR/AUD": "EURAUD=X",
+        "GBP/JPY": "GBPJPY=X",
+        "GOLD": "GC=F",
+        "SILVER": "SI=F",
+        "CRUDE OIL": "CL=F",
+        "BRENT OIL": "BZ=F",
+        "APPLE": "AAPL",
+        "GOOGLE": "GOOGL",
+        "MICROSOFT": "MSFT",
+        "AMAZON": "AMZN",
+        "FACEBOOK": "META",
+        "TESLA": "TSLA",
+        "NETFLIX": "NFLX",
+        "ALIBABA": "BABA",
+        "INTEL": "INTC",
+        "VISA": "V"
+    }
+    
+    ticker = ticker_map.get(clean_market, "EURUSD=X")
+    
+    try:
+        # Maka data farany (labozia 1 minitra miisa 40)
+        data = yf.download(tickers=ticker, period="1d", interval="1m", progress=False)
         
-        self.status_label.config(text=f"Manao analyse ny {pair} ({tf})... miandrasa kely", fg="#ffcc00")
-        self.signal_label.config(text="")
-        self.time_label.config(text="")
-        self.root.update()
+        if data.empty or len(data) < 15:
+            return jsonify({"status": "error", "message": "Tsy azo ny data avy amin'ny tsena"})
         
-        self.root.after(1500, self.generate_signal)
-
-    def generate_signal(self):
-        pair = self.pair_box.get()
-        tf = self.tf_box.get() # Maka an'ilay timeframe nosafidiana
+        # Kajy ara-teknika
+        data = calculate_indicators(data)
         
-        r = random.randint(1, 3)
-        now = datetime.datetime.now()
-        time_str = now.strftime("%H:%M:%S")
-
-        if r == 1:
-            self.status_label.config(text=f"✅ Analyse vita ho an'ny {pair}", fg="#4ef2d2")
-            self.signal_label.config(text="🟢 BUY (CALL)", fg="#00ff66")
-            self.time_label.config(text=f"Fotoana: {time_str}\n⏱ Expiration: Afaka {tf}")
-            
-        elif r == 2:
-            self.status_label.config(text=f"✅ Analyse vita ho an'ny {pair}", fg="#4ef2d2")
-            self.signal_label.config(text="🔴 SELL (PUT)", fg="#ff3333")
-            self.time_label.config(text=f"Fotoana: {time_str}\n⏱ Expiration: Afaka {tf}")
-            
+        last_row = data.iloc[-1]
+        current_price = float(last_row['Close'])
+        rsi_value = float(last_row['RSI'])
+        sma_value = float(last_row['SMA'])
+        
+        # Paikady (Strategy): RSI + Trend SMA
+        # Raha RSI latsaky ny 30 (Oversold) sy ny vidiny ambony SMA -> BUY
+        if rsi_value < 35 and current_price > sma_value:
+            signal = "🟢 HIGHER (CALL)"
+            action_text = "TSINDRIO BOKOTRA MAITSO"
+            style = "buy-style"
+        # Raha RSI ambony 70 (Overbought) sy ny vidiny ambany SMA -> SELL
+        elif rsi_value > 65 and current_price < sma_value:
+            signal = "🔴 LOWER (PUT)"
+            action_text = "TSINDRIO BOKOTRA MENA"
+            style = "sell-style"
         else:
-            self.status_label.config(text=f"⚠️ Analyse vita ho an'ny {pair}", fg="#ffcc00")
-            self.signal_label.config(text="🚫 NO SIGNAL", fg="#a0a0a0")
-            self.time_label.config(text="Tsy milamina ny tsena izao. Manandrama indray.")
+            signal = "🚫 NO SIGNAL"
+            action_text = "Milamina ny tsena. Miandrasa labozia vaovao."
+            style = "nosignal-style"
+            
+        return jsonify({
+            "status": "success",
+            "market": market,
+            "timeframe": timeframe,
+            "signal": signal,
+            "action": action_text,
+            "style": style,
+            "rsi": round(rsi_value, 2),
+            "price": round(current_price, 5)
+        })
+        
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
 
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = ForexSignalBot(root)
-    root.mainloop()
+if __name__ == '__main__':
+    app.run(debug=True)
