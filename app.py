@@ -7,11 +7,6 @@ import ta
 app = Flask(__name__, template_folder='.')
 
 def analyze_market_live(pair, timeframe):
-    """
-    Eto no maka ny data mivantana sy mikajy ny tondro ara-teknika.
-    (Soloina ny API-n'ny broker-nao haka ny labozia mivantana ity any aoriana).
-    """
-    # Mamorona data labozia 50 kisendrasendra fotsiny aloha ho an'ny kajy
     prices = [round(random.uniform(1.0950, 1.1050), 4) for _ in range(50)]
     df = pd.DataFrame({
         'close': prices,
@@ -19,7 +14,6 @@ def analyze_market_live(pair, timeframe):
         'low': [p - 0.001 for p in prices]
     })
     
-    # Mikajy RSI sy Bollinger Bands
     df['rsi'] = ta.momentum.rsi(df['close'], window=14)
     indicator_bb = ta.volatility.BollingerBands(close=df['close'], window=20, window_dev=2)
     df['bb_high'] = indicator_bb.bollinger_hband()
@@ -31,7 +25,6 @@ def analyze_market_live(pair, timeframe):
     bb_high = last_row['bb_high']
     bb_low = last_row['bb_low']
     
-    # Fandinihana ny Signal
     if rsi > 65 or current_price >= bb_high:
         return "SELL"
     elif rsi < 35 or current_price <= bb_low:
@@ -41,29 +34,31 @@ def analyze_market_live(pair, timeframe):
 
 @app.route('/')
 def index():
-    # Mampiseho ilay pejy index.html
     return render_template('index.html')
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze():
-    data = request.json
-    pair = data.get('pair')
-    timeframe = data.get('timeframe')
-    
-    # Antsoina ilay asa manao analyse
-    result = analyze_market_live(pair, timeframe)
-    
-    now = datetime.datetime.now()
-    time_str = now.strftime("%H:%M:%S")
-    
-    return jsonify({
-        "status": "success",
-        "pair": pair,
-        "timeframe": timeframe,
-        "signal": result,
-        "time": time_str
-    })
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"status": "error"}), 400
+            
+        pair = data.get('pair')
+        timeframe = data.get('timeframe')
+        
+        result = analyze_market_live(pair, timeframe)
+        now = datetime.datetime.now()
+        time_str = now.strftime("%H:%M:%S")
+        
+        return jsonify({
+            "status": "success",
+            "pair": pair,
+            "timeframe": timeframe,
+            "signal": result,
+            "time": time_str
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
-    # Handeha amin'ny port 5000 ny bot-nao
     app.run(debug=True, port=5000)
