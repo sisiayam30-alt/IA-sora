@@ -78,7 +78,7 @@
             detailsDiv.innerHTML = "";
 
             try {
-                const response = await fetch(window.location.origin + '/api/analyze', {
+                const response = await fetch('/api/analyze', {
                     method: 'POST',
                     headers: { 
                         'Accept': 'application/json',
