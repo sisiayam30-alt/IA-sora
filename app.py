@@ -1,10 +1,10 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, jsonify, request
 import random
 import datetime
 import pandas as pd
 import ta
 
-app = Flask(__name__, template_folder='.')
+app = Flask(__name__)
 
 def analyze_market_live(pair, timeframe):
     prices = [round(random.uniform(1.0950, 1.1050), 4) for _ in range(50)]
@@ -34,17 +34,21 @@ def analyze_market_live(pair, timeframe):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    try:
+        with open('index.html', 'r', encoding='utf-8') as f:
+            return f.read()
+    except Exception as e:
+        return f"Error: Tsy hita ny index.html ({str(e)})"
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze():
     try:
         data = request.json
         if not data:
-            return jsonify({"status": "error"}), 400
+            return jsonify({"status": "error", "message": "No data received"}), 400
             
-        pair = data.get('pair')
-        timeframe = data.get('timeframe')
+        pair = data.get('pair', 'EUR/USD (OTC)')
+        timeframe = data.get('timeframe', '1m')
         
         result = analyze_market_live(pair, timeframe)
         now = datetime.datetime.now()
