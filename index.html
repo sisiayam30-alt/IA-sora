@@ -11,7 +11,7 @@
         h1 { font-size: 22px; color: #4ef2d2; margin-bottom: 25px; font-weight: 700; }
         .form-group { text-align: left; margin-bottom: 18px; }
         label { display: block; font-size: 14px; color: #94a3b8; margin-bottom: 8px; }
-        select { width: 100%; padding: 12px; background: #202436; border: 1px solid #2d334d; color: #fff; border-radius: 8px; font-size: 15px; outline: none; }
+        select { width: 100%; padding: 12px; background: #202436; border: 1px solid #2d334d; color: #fff; border-radius: 8px; font-size: 15px; outline: none; cursor: pointer; }
         .btn-analyze { width: 100%; padding: 14px; background: linear-gradient(135deg, #ff007f, #7928ca); border: none; color: white; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 15px; box-shadow: 0 4px 15px rgba(255, 0, 127, 0.3); }
         .result-box { margin-top: 25px; background: #1e2235; border-radius: 12px; padding: 20px; border: 1px dashed #2d334d; min-height: 140px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         .status { font-size: 15px; color: #a0a0a0; font-style: italic; margin-bottom: 10px; }
@@ -28,10 +28,23 @@
         <div class="form-group">
             <label>Safidio ny Marche (Pair):</label>
             <select id="market">
-                <option value="EUR/USD">EUR/USD</option>
-                <option value="GBP/USD">GBP/USD</option>
-                <option value="USD/JPY">USD/JPY</option>
-                <option value="AUD/USD">AUD/USD</option>
+                <optgroup label="Pocket Option OTC">
+                    <option value="EUR/USD (OTC)">EUR/USD (OTC)</option>
+                    <option value="GBP/USD (OTC)">GBP/USD (OTC)</option>
+                    <option value="USD/JPY (OTC)">USD/JPY (OTC)</option>
+                    <option value="AUD/USD (OTC)">AUD/USD (OTC)</option>
+                    <option value="USD/CHF (OTC)">USD/CHF (OTC)</option>
+                    <option value="NZD/USD (OTC)">NZD/USD (OTC)</option>
+                    <option value="EUR/GBP (OTC)">EUR/GBP (OTC)</option>
+                    <option value="EUR/JPY (OTC)">EUR/JPY (OTC)</option>
+                    <option value="GBP/JPY (OTC)">GBP/JPY (OTC)</option>
+                </optgroup>
+                <optgroup label="Forex Real-Time">
+                    <option value="EUR/USD">EUR/USD (Real)</option>
+                    <option value="GBP/USD">GBP/USD (Real)</option>
+                    <option value="USD/JPY">USD/JPY (Real)</option>
+                    <option value="AUD/USD">AUD/USD (Real)</option>
+                </optgroup>
             </select>
         </div>
         <div class="form-group">
@@ -59,36 +72,42 @@
             const signalDiv = document.getElementById("signal");
             const detailsDiv = document.getElementById("details");
 
-            statusDiv.innerHTML = `Manao analyse mivantana an'i ${pair}...`;
+            statusDiv.innerHTML = "Manao analyse mivantana an'i " + pair + "...";
             statusDiv.style.color = "#ffcc00";
             signalDiv.innerHTML = "";
             detailsDiv.innerHTML = "";
 
             try {
-                // Mandefa fangatahana any amin'ny Python Backend (API)
-                const response = await fetch('/api/analyze', {
+                const response = await fetch(window.location.origin + '/api/analyze', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/center+json', 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json' 
+                    },
                     body: JSON.stringify({ pair: pair, timeframe: timeframe })
                 });
                 
                 const data = await response.json();
                 
-                statusDiv.innerHTML = `✅ Analyse vita ho an'ny ${data.pair}`;
+                statusDiv.innerHTML = "✅ Analyse vita ho an'ny " + data.pair;
                 statusDiv.style.color = "#4ef2d2";
+
+                let ext = "1 minitra";
+                if (timeframe === "2m") ext = "2 minitra";
+                else if (timeframe === "5m") ext = "5 minitra";
 
                 if (data.signal === "BUY") {
                     signalDiv.innerHTML = "🟢 BUY (CALL)";
                     signalDiv.className = "signal buy-style";
-                    detailsDiv.innerHTML = `Ora: ${data.time}<br>⏱ <b>Expiration: Afaka 2 minitra</b>`;
+                    detailsDiv.innerHTML = "Ora: " + data.time + "<br>⏱ <b>Expiration: Afaka " + ext + "</b>";
                 } else if (data.signal === "SELL") {
                     signalDiv.innerHTML = "🔴 SELL (PUT)";
                     signalDiv.className = "signal sell-style";
-                    detailsDiv.innerHTML = `Ora: ${data.time}<br>⏱ <b>Expiration: Afaka 2 minitra</b>`;
+                    detailsDiv.innerHTML = "Ora: " + data.time + "<br>⏱ <b>Expiration: Afaka " + ext + "</b>";
                 } else {
                     signalDiv.innerHTML = "🚫 NO SIGNAL";
                     signalDiv.className = "signal neutral-style";
-                    statusDiv.innerHTML = `⚠️ Tsy misy tondro mazava`;
+                    statusDiv.innerHTML = "⚠️ Tsy misy tondro mazava";
                     statusDiv.style.color = "#ffcc00";
                     detailsDiv.innerHTML = "Milamina ny tsena. Andramo indray mialoha ny labozia manaraka.";
                 }
